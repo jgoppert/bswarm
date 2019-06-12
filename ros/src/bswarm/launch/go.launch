@@ -1,0 +1,5 @@
+<launch>
+
+  <node pkg="turtlesim" name="sim" type="turtlesim_node"/>
+  <node pkg="bswarm" name="move" type="move.py" output="screen"/>
+</launch>

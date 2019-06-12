@@ -1,7 +1,6 @@
+
 import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits import mplot3d
-
 
 def time_scaling(t, t0, T):
     """
@@ -10,8 +9,7 @@ def time_scaling(t, t0, T):
     @param T: duration for leg
     """
     return (t - t0)/T
-
-
+    
 def trajectory_coefficients(beta, m, n, T):
     """
     @param beta: scaled time
@@ -24,47 +22,6 @@ def trajectory_coefficients(beta, m, n, T):
         p[n - k - 1] = (np.math.factorial(k)*beta**(k-m))/((np.math.factorial(k-m))*T**m)
     return p
 
-
-def derivative(coef, Ti):
-    c = []
-    n = len(coef)
-    for i in range(n-1):
-        ci = (n-1-i)*coef[i]/Ti
-        c.append(ci)
-    c = np.array(c)
-    return c
-
-
-def find_trajectory(x_list, v_list, T, plot=False):
-    n = 4 # this will be fixed to support 3rd order polynomials
-    if not len(x_list) == len(T) + 1:
-        raise ValueError('x_list must be 1 longer than T')
-    if not len(x_list) == len(v_list):
-        raise ValueError('x_list and v_list must be same length')
-
-    S = np.hstack([[0], np.cumsum(T)])import numpy as np
-
-
-def trajectory_coefficients(beta, m, n, T):
-    """
-    @param beta: scaled time
-    @param m: derivative order, 0, for no derivative
-    @param n: number of coeff in polynomial (order + 1)
-    @param T: period
-    """
-    p = np.zeros(n)
-    for k in range(m, n):
-        p[n - k - 1] = (np.math.factorial(k)*beta**(k-m))/((np.math.factorial(k-m))*T**m)
-    return p
-
-def derivative(coef, Ti):
-    c = []
-    n = len(coef)
-    for i in range(n-1):
-        ci = (n-1-i)*coef[i]/Ti
-        c.append(ci)
-    c = np.array(c)
-    return c
 
 def find_trajectory(x_list, v_list, T, plot=False):
     n = 4 # this will be fixed to support 3rd order polynomials
@@ -107,30 +64,16 @@ def find_trajectory(x_list, v_list, T, plot=False):
         c = np.linalg.pinv(A).dot(b)
     else:
         c = np.linalg.inv(A).dot(b)
-        
+    
     t = []
     x = []
-    v = []
-    a = []
-    for i in range(len(T)):
+    for i in range(0, len(T)):
         ti = np.linspace(S[i], S[i+1])
         beta = time_scaling(ti, S[i], T[i])
-        cp = c[n*i:n*(i+1)]
-        cv = derivative(cp, T[i])
-        ca = derivative(cv, T[i])
-
-        xi = np.polyval(cp, beta)
-        vi = np.polyval(cv, beta)
-        ai = np.polyval(ca, beta)
-
+        xi = np.polyval(c[n*i:n*(i+1)], beta)
         t.append(ti)
         x.append(xi)
-        v.append(vi)
-        a.append(ai)
-
     x = np.hstack(x)
-    v = np.hstack(v)
-    a = np.hstack(a)
     t = np.hstack(t)
     return locals()
 
@@ -158,3 +101,18 @@ def plan_trajectory(T, waypoints):
     plt.legend()
     plt.grid()
     return locals()
+
+waypoints = np.array([
+    # px, py, vx, vy
+    [0, 0, 1, -1],
+    [1, 0, 1, 1],
+    [1, 1, -1, 1],
+    [0, 1, -1, -1],
+    [0, 0, 1, -1]
+])
+traj1 = plan_trajectory(T=[1, 1, 1, 1], waypoints=waypoints);
+plt.title('An example trajectory')
+
+plt.figure()
+traj2 = plan_trajectory(T=[0.1, 0.1, 0.1, 0.1], waypoints=waypoints);
+plt.title('The same trajectory with 1/10 time scaling')
