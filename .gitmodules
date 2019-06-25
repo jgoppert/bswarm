@@ -1,0 +1,3 @@
+[submodule "pybswarm"]
+	path = pybswarm
+	url = git@github.com:jgoppert/pybswarm
