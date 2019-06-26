@@ -1,4 +1,5 @@
 # Authors
 jgoppert: James Goppert
-alextmoore98: Alex Moore
+taashikapoor: Taashi Kapoor
 fishabh: Rishabh Gupta
+alextmoore98: Alex Moore
