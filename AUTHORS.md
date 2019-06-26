@@ -1,5 +1,6 @@
 # Authors
 jgoppert: James Goppert
+AzizFS: Aziz
 taashikapoor: Taashi Kapoor
 fishabh: Rishabh Gupta
 AlexanderJChapa: Alexander Chapa
