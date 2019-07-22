@@ -20,7 +20,7 @@
   <arg name="verbose" default="true"/>
   <arg name="nogpu" default="false"/>
 
-  <arg unless="$(arg nogpu)" name="word_name" value="$(find bswarm)/worlds/cafe.world"/>
+  <arg unless="$(arg nogpu)" name="world_name" value="$(find bswarm)/worlds/cafe.world"/>
   <arg     if="$(arg nogpu)" name="world_name" value="$(find bswarm)/worlds/cafe_nogpu.world"/>
 
   <arg name="respawn_gazebo" default="false"/>
