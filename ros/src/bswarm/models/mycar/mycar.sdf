@@ -2,7 +2,7 @@
 <sdf version="1.6">
   <model name="mycar">
     <include>
-      <pose>0 0 0.2 0 0 0</pose>
+      <pose>0 0 0.05 0 0 0</pose>
       <uri>model://hokuyo_gpu</uri>
     </include>
     <joint name="hokuyo_joint" type="fixed">
@@ -32,7 +32,7 @@
       <collision name="collision">
         <geometry>
           <box>
-            <size>0.5 0.2 0.2</size>
+            <size>0.5 0.2 0.1</size>
           </box>
         </geometry>
       </collision>
@@ -42,7 +42,7 @@
         </material>
         <geometry>
           <box>
-            <size>0.5 0.2 0.2</size>
+            <size>0.5 0.2 0.1</size>
           </box>
         </geometry>
       </visual>
@@ -72,7 +72,7 @@
         <geometry>
           <cylinder>
             <radius>0.05</radius>
-            <length>0.02</length>
+            <length>0.04</length>
           </cylinder>
         </geometry>
       </collision>
@@ -83,7 +83,7 @@
         <geometry>
           <cylinder>
             <radius>0.05</radius>
-            <length>0.02</length>
+            <length>0.04</length>
           </cylinder>
         </geometry>
       </visual>
@@ -127,7 +127,7 @@
         <geometry>
           <cylinder>
             <radius>0.05</radius>
-            <length>0.02</length>
+            <length>0.04</length>
           </cylinder>
         </geometry>
       </collision>
@@ -138,7 +138,7 @@
         <geometry>
           <cylinder>
             <radius>0.05</radius>
-            <length>0.02</length>
+            <length>0.04</length>
           </cylinder>
         </geometry>
       </visual>
@@ -182,7 +182,7 @@
         <geometry>
           <cylinder>
             <radius>0.05</radius>
-            <length>0.02</length>
+            <length>0.04</length>
           </cylinder>
         </geometry>
       </collision>
@@ -193,7 +193,7 @@
         <geometry>
           <cylinder>
             <radius>0.05</radius>
-            <length>0.02</length>
+            <length>0.04</length>
           </cylinder>
         </geometry>
       </visual>
@@ -230,7 +230,7 @@
         <geometry>
           <cylinder>
             <radius>0.05</radius>
-            <length>0.02</length>
+            <length>0.04</length>
           </cylinder>
         </geometry>
       </collision>
@@ -241,7 +241,7 @@
         <geometry>
           <cylinder>
             <radius>0.05</radius>
-            <length>0.02</length>
+            <length>0.04</length>
           </cylinder>
         </geometry>
       </visual>
@@ -255,11 +255,43 @@
     </joint>
     <plugin name="p3d" filename="libgazebo_ros_p3d.so">
       <bodyName>chasis</bodyName>
-      <topicName>ground_truth</topicName>
+      <topicName>mycar/ground_truth</topicName>
       <frameName>world</frameName>
       <updateRate>100</updateRate>
     </plugin>
     <!--<plugin name="model_push" filename="libmodel_push.so"/>-->
+    <plugin name="force_front_left" filename="libgazebo_ros_force.so">
+      <alwaysOn>true</alwaysOn>
+      <update>100</update>
+      <updateRate>100.0</updateRate>
+      <bodyName>front_left_wheel</bodyName>
+      <topicName>mycar/force_front_left</topicName>
+    </plugin>
+
+    <plugin name="force_front_right" filename="libgazebo_ros_force.so">
+      <alwaysOn>true</alwaysOn>
+      <update>100</update>
+      <updateRate>100.0</updateRate>
+      <bodyName>front_right_wheel</bodyName>
+      <topicName>mycar/force_front_right</topicName>
+    </plugin>
+
+    <plugin name="force_rear_left" filename="libgazebo_ros_force.so">
+      <alwaysOn>true</alwaysOn>
+      <update>100</update>
+      <updateRate>100.0</updateRate>
+      <bodyName>rear_left_wheel</bodyName>
+      <topicName>mycar/force_rear_left</topicName>
+    </plugin>
+
+    <plugin name="force_rear_right" filename="libgazebo_ros_force.so">
+      <alwaysOn>true</alwaysOn>
+      <update>100</update>
+      <updateRate>100.0</updateRate>
+      <bodyName>front_right_wheel</bodyName>
+      <topicName>mycar/force_rear_right</topicName>
+    </plugin>
+
   </model>
 </sdf>
 <!-- vim: set et ft=xml fenc=utf-8 ff=unix sts=0 sw=2 ts=2 : -->
