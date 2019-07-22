@@ -1,5 +1,9 @@
 <launch>
 
+  <node pkg="tf2_ros" type="static_transform_publisher" name="hokuyo_tf" args="0 0 0.2 0 0 0 base_link hokuyo_link"/>
+
+  <node pkg="bswarm" type="tf_gazebo.py" name="tf_gazebo"/>
+
   <!-- these are the arguments you can pass this launch file, for example paused:=true -->
   <arg name="paused" default="false"/>
   <arg name="use_sim_time" default="true"/>
@@ -12,8 +16,8 @@
   <arg name="headless" default="false"/>
   <arg name="debug" default="false"/>
   <arg name="physics" default="ode"/>
-  <arg name="verbose" default="false"/>
-  <arg name="world_name" default="worlds/bswarm.world"/> <!-- Note: the world_name is with respect to GAZEBO_RESOURCE_PATH environmental variable -->
+  <arg name="verbose" default="true"/>
+  <arg name="world_name" default="$(find bswarm)/worlds/cafe.world"/> <!-- Note: the world_name is with respect to GAZEBO_RESOURCE_PATH environmental variable -->
   <arg name="respawn_gazebo" default="false"/>
   <arg name="use_clock_frequency" default="false"/>
   <arg name="pub_clock_frequency" default="100"/>
