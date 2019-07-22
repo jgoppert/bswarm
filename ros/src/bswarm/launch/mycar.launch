@@ -18,7 +18,11 @@
   <arg name="debug" default="false"/>
   <arg name="physics" default="ode"/>
   <arg name="verbose" default="true"/>
-  <arg name="world_name" default="$(find bswarm)/worlds/cafe.world"/> <!-- Note: the world_name is with respect to GAZEBO_RESOURCE_PATH environmental variable -->
+  <arg name="nogpu" default="false"/>
+
+  <arg unless="$(arg nogpu)" name="word_name" value="$(find bswarm)/worlds/cafe.world"/>
+  <arg     if="$(arg nogpu)" name="world_name" value="$(find bswarm)/worlds/cafe_nogpu.world"/>
+
   <arg name="respawn_gazebo" default="false"/>
   <arg name="use_clock_frequency" default="false"/>
   <arg name="pub_clock_frequency" default="100"/>
