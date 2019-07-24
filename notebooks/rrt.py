@@ -86,13 +86,17 @@ assert np.allclose(X.dot(SE2_inv(X)), np.eye(3))
 assert np.allclose(SE2_log(SE2_exp(v)) - v, np.zeros(3))
 assert np.allclose(SE2_to_param(SE2_from_param(v)) - v, np.zeros(3))
 
-def sample(X_goal):
+def sample(X_goal, box):
     """
     Sample from planning area [10, 10], [-5, 5],
     with 10% probability, return X_goal
+
+    @param X_goal: The goal position
+    @param box: [xmin, xmax, ymin, ymax]
     """
-    x = 10*np.random.rand()
-    y = 10*np.random.rand() - 5
+    xmin, xmax, ymin, ymax = box
+    x = (xmax - xmin)*np.random.rand() + (xmax + xmin)/2
+    y = (ymax - ymin)*np.random.rand() + (ymax + ymin)/2
     theta = 2*np.pi*np.random.rand()
     if np.random.rand() < 0.1:
         return X_goal
@@ -130,13 +134,19 @@ def local_path_planner(X0, X1):
         v *= 1/np.linalg.norm(v)
     return X0.dot(SE2_exp(v))
 
-def collision(collision_points, X0, X1, steps):
+def collision(collision_points, X0, X1, box, steps):
     """
     Check that the points along the trajectory from X0 to
     X1 do not collide with the circular collision points defined
     as a list of [x, y, r], where (x, y) is the center, and
     r is the radius. Evaluate the trajectory at (steps) discrete
     points.
+
+    @param collision_points: list of [x, y, radius]
+    @param X0: start point
+    @param X1: end point
+    @param box: [xmin, xmax, ymin, ymax]
+    @param steps: number of steps along trajectory
     """
     v = SE2_log(SE2_inv(X0).dot(X1))
     for t in np.linspace(0, 1, steps):
@@ -200,87 +210,119 @@ class Tree:
             ret.append(self)
         return ret
 
-X_start = SE2_from_param([0, 0, 0])  # theta=0, x=0, y=0
-X_goal = SE2_from_param([0, 10, 0])  # theta=0, x=10, y=0
+def rrt(X_start, X_goal, box, collision_points, plot=False):
+    """
+    Rapidly exploring random tree planner
 
-# this is a list of all obstacles
-# x, y, radius
-collision_points = [
-    [5, 0, 2],
-    [3, 3, 1],
-    [5, -5, 2],
-    [10, 5, 3],
-    [10, -5, 2],
-]
+    @param X_start: start SE2 element
+    @param X_goal: goal SE2 element
+    @param box: [xmin, xmax, ymin, ymax]
+    @param collision_points: list of [x, y, radius]
+    @param plot (bool), controls plotting
+    @return path as a list of Tree nodes
+    """
 
-root = Tree(X_start)
-fig = plt.figure(figsize=(10, 10))
-max_iterations = 200
-i = 0
-while True:
+    root = Tree(X_start)
 
-    # draw a random sample
-    XS = sample(X_goal)
+    if plot:
+        fig = plt.figure(figsize=(10, 10))
 
-    # find the closest node to the sample
-    node, dist = root.closest(XS)
+    max_iterations = 200
+    i = 0
+    while True:
 
-    # avoid bad paths
-    if dist > 10:
-        continue
+        # draw a random sample
+        XS = sample(X_goal, box)
 
-    # plan a path towards the sample from the closest node
-    X0 = node.position
-    X1 = local_path_planner(X0, XS)
+        # find the closest node to the sample
+        node, dist = root.closest(XS)
 
-    # if the path has a collision, skip
-    if collision(collision_points, X0, X1, 10):
-        continue
+        # avoid bad paths
+        if dist > 10:
+            continue
 
-    # add the end of the local_path_planner path to the tree
-    new_node = Tree(X1)
-    node.add(new_node)
+        # plan a path towards the sample from the closest node
+        X0 = node.position
+        X1 = local_path_planner(X0, XS)
 
-    # plot the tree
-    p0 = SE2_to_param(node.position)
-    p1 = SE2_to_param(new_node.position)
-    ps = SE2_to_param(XS)
-    plt.plot([p0[1], p1[1]], [p0[2], p1[2]], 'k-')
-    plt.plot(ps[1], ps[2], 'r.')
+        # if the path has a collision, skip
+        if collision(collision_points, X0, X1, box, 10):
+            continue
 
-    # check if we have reached the goal
-    if distance(X1, X_goal) < 0.01:
-        print('goal reached')
-        break
+        # add the end of the local_path_planner path to the tree
+        new_node = Tree(X1)
+        node.add(new_node)
 
-    # check if we have exeeded max iterations
-    i += 1
-    if i > max_iterations:
-        print('max iterations exceeded')
-        break
+        # plot the tree
+        p0 = SE2_to_param(node.position)
+        p1 = SE2_to_param(new_node.position)
+        ps = SE2_to_param(XS)
 
-# set the limits for the plot
-plt.gca().set_xlim([0, 10])
-plt.gca().set_ylim([-5, 5])
-plt.grid()
+        if plot:
+            plt.plot([p0[1], p1[1]], [p0[2], p1[2]], 'k-')
+            plt.plot(ps[1], ps[2], 'r.')
 
-# plot all nodes
-for leaf in root.get_leaves():
-    p = SE2_to_param(leaf.position)
-    plt.plot(p[1], p[2], 'bo')
+        # check if we have reached the goal
+        if distance(X1, X_goal) < 0.01:
+            print('goal reached')
+            break
 
-# plot the collision points
-for x, y, r in collision_points:
-    circle1 = plt.Circle((x, y), r, color='r')
-    plt.gca().add_artist(circle1)
+        # check if we have exeeded max iterations
+        i += 1
+        if i > max_iterations:
+            print('max iterations exceeded')
+            break
 
-# plot the start and goal positions
-xs = SE2_to_param(X_start)
-xg = SE2_to_param(X_goal)
-plt.plot(xs[1], xs[2], 'go', markersize=20)
-plt.plot(xg[1], xg[2], 'ro', markersize=20)
+    # build the path
+    path = np.array([SE2_to_param(n.position)[1:] for n in new_node.path()])
 
-# plot the path
-path = np.array([SE2_to_param(n.position)[1:] for n in new_node.path()])
-plt.plot(path[:, 0], path[:, 1], 'g-', linewidth=10)
-plt.show()
+    # set the limits for the plot
+    if plot:
+        plt.gca().set_xlim([0, 10])
+        plt.gca().set_ylim([-5, 5])
+        plt.grid()
+
+        # plot all nodes
+        for leaf in root.get_leaves():
+            p = SE2_to_param(leaf.position)
+            plt.plot(p[1], p[2], 'bo')
+
+        # plot the collision points
+        for x, y, r in collision_points:
+            circle1 = plt.Circle((x, y), r, color='r')
+            plt.gca().add_artist(circle1)
+
+        # plot the start and goal positions
+        xs = SE2_to_param(X_start)
+        xg = SE2_to_param(X_goal)
+        plt.plot(xs[1], xs[2], 'go', markersize=20)
+        plt.plot(xg[1], xg[2], 'ro', markersize=20)
+
+        plt.plot(path[:, 0], path[:, 1], 'g-', linewidth=10)
+        plt.xlabel('x, m')
+        plt.ylabel('y, m')
+        plt.title('RRT')
+        plt.show()
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--plot', action='store_true')
+    args = parser.parse_args()
+
+    X_start = SE2_from_param([0, 0, 0])  # theta=0, x=0, y=0
+    X_goal = SE2_from_param([0, 10, 0])  # theta=0, x=10, y=0
+
+    # this is a list of all obstacles
+    # x, y, radius
+    collision_points = [
+        [5, 0, 2],
+        [3, 3, 1],
+        [5, -5, 2],
+        [10, 5, 3],
+        [10, -5, 2],
+    ]
+
+    rrt(X_start, X_goal, [0, 10, -5, 5], collision_points, args.plot)
