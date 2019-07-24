@@ -74,17 +74,18 @@ def SE2_exp(v):
         [R, V.dot(u)],
         [0, 0,  1]])
 
-v = np.random.randn(3)
-X = SE2_from_param(v)
-assert np.allclose(X.dot(SE2_inv(X)), np.eye(3))
-assert np.allclose(SE2_log(SE2_exp(v)) - v, np.zeros(3))
-assert np.allclose(SE2_to_param(SE2_from_param(v)) - v, np.zeros(3))
+def test_SE2():
+    v = np.random.randn(3)
+    X = SE2_from_param(v)
+    assert np.allclose(X.dot(SE2_inv(X)), np.eye(3))
+    assert np.allclose(SE2_log(SE2_exp(v)) - v, np.zeros(3))
+    assert np.allclose(SE2_to_param(SE2_from_param(v)) - v, np.zeros(3))
 
-v = np.zeros(3)
-X = SE2_from_param(v)
-assert np.allclose(X.dot(SE2_inv(X)), np.eye(3))
-assert np.allclose(SE2_log(SE2_exp(v)) - v, np.zeros(3))
-assert np.allclose(SE2_to_param(SE2_from_param(v)) - v, np.zeros(3))
+    v = np.zeros(3)
+    X = SE2_from_param(v)
+    assert np.allclose(X.dot(SE2_inv(X)), np.eye(3))
+    assert np.allclose(SE2_log(SE2_exp(v)) - v, np.zeros(3))
+    assert np.allclose(SE2_to_param(SE2_from_param(v)) - v, np.zeros(3))
 
 def sample(X_goal, box):
     """
@@ -93,15 +94,43 @@ def sample(X_goal, box):
 
     @param X_goal: The goal position
     @param box: [xmin, xmax, ymin, ymax]
+
+    @return: (sample, is_goal) (bool)
     """
-    xmin, xmax, ymin, ymax = box
-    x = (xmax - xmin)*np.random.rand() + (xmax + xmin)/2
-    y = (ymax - ymin)*np.random.rand() + (ymax + ymin)/2
-    theta = 2*np.pi*np.random.rand()
     if np.random.rand() < 0.1:
-        return X_goal
+        return X_goal, True
     else:
-        return SE2_from_param([theta, x, y])
+        xmin, xmax, ymin, ymax = box
+        x = xmin + (xmax - xmin)*np.random.rand()
+        y = ymin + (ymax - ymin)*np.random.rand()
+        theta = 2*np.pi*np.random.rand()
+        XS = SE2_from_param([theta, x, y])
+
+        # if close to goal in euclidean distance, set to goal
+        theta_g, x_g, y_g = SE2_to_param(X_goal)
+        d = np.sqrt((x - x_g)**2 + (y - y_g)**2)
+        if d < 1:
+            return X_goal, True
+        else:
+            return XS, False
+
+def find_u_R_d(X0, X1):
+    """
+    Compute arch length, radius, and euclidean distance
+    """
+    dtheta, dx, dy = SE2_to_param(SE2_inv(X0).dot(X1))
+    d = np.sqrt(dx**2 + dy**2) # hypotenuse
+    if np.abs(dx) < 1e-6:
+        theta = np.pi/2
+    else:
+        theta = np.arctan(dy/dx)
+    if np.abs(theta) > 1e-3:
+        R = d/(2*np.sin(theta))
+        u = R*2*theta
+    else:
+        R = np.infty
+        u = d
+    return u, R, d
 
 def distance(X0, X1):
     """
@@ -110,31 +139,32 @@ def distance(X0, X1):
     as this is harder for the vehicle than turning (dtheta)
     and formward movingment (dx)
     """
-    dtheta, dx, dy = SE2_log(SE2_inv(X0).dot(X1))
-    cost = np.sqrt(dx**2 + 100*dy**2 + dtheta**2)
-    
-    # avoid moving backwards
-    if dx < 0:
-        cost *= 1000
-        
-    # avoid min turn radius
-    if np.abs(dtheta) > 1e-3:
-        R = dx/dtheta
-        if np.abs(R) < 0.1:
-            cost *= 1000
+    u, R, d = find_u_R_d(X0, X1)
+    cost = np.abs(u)
+    if d > 0.1 and np.abs(R) < 0.5:
+        cost = np.infty
     return cost
 
-def local_path_planner(X0, X1):
+def local_path_planner(X0, X1, dist):
     """
     Plan a path from X0 to X1. If the norm of the lie algebra
     is greather than 1, limit it to 1.
+
+    @para X0: start
+    @param X1: goal
+    @dist: the distance to travel
     """
-    v = SE2_log(SE2_inv(X0).dot(X1))
-    if np.linalg.norm(v) > 1:
-        v *= 1/np.linalg.norm(v)
+    u, R, d = find_u_R_d(X0, X1)
+    if np.abs(u) > dist:
+        u = dist*np.sign(u)
+    if np.abs(R) < 1e-3:
+        omega = 0
+    else:
+        omega = u/R
+    v = np.array([omega, u, 0])
     return X0.dot(SE2_exp(v))
 
-def collision(collision_points, X0, X1, box, steps):
+def collision(collision_points, vehicle_radius, X0, X1, box, steps):
     """
     Check that the points along the trajectory from X0 to
     X1 do not collide with the circular collision points defined
@@ -143,6 +173,7 @@ def collision(collision_points, X0, X1, box, steps):
     points.
 
     @param collision_points: list of [x, y, radius]
+    @param vehicle_radius: radius of vehicle
     @param X0: start point
     @param X1: end point
     @param box: [xmin, xmax, ymin, ymax]
@@ -153,10 +184,11 @@ def collision(collision_points, X0, X1, box, steps):
         X = X0.dot(SE2_exp(v*t))
         theta, x, y = SE2_to_param(X)
         # check bounds of environment
-        if (x < 0 or x > 10 or y < -5 or y > 5):
+        rv = vehicle_radius
+        if (x < rv or x > 10 - rv or y < -5 + rv or y > 5 - rv):
             return True
         for xc, yc, r in collision_points:
-            if np.sqrt((xc - x)**2 + (yc - y)**2) < r:
+            if (xc - x)**2 + (yc - y)**2 < (r + rv)**2:
                 return True
     return False
 
@@ -178,14 +210,21 @@ class Tree:
         child.parent = self
         self.children.append(child)
 
-    def closest(self, position):
+    def closest(self, position, black_list):
         """
         Find the node closest to the given position.
+
+        @param position to get closest to
+        @param black_list: black list of children to ignore
+         (so can avoid duplicate collision checks)
         """
         closest_node = self
-        dist_min = distance(self.position, position)
+        if self in black_list:
+            dist_min = np.infty
+        else:
+            dist_min = distance(self.position, position)
         for child in self.children:
-            child_closest, dist_child = child.closest(position)
+            child_closest, dist_child = child.closest(position, black_list)
             if dist_child < dist_min:
                 closest_node = child_closest
                 dist_min = dist_child
@@ -210,43 +249,66 @@ class Tree:
             ret.append(self)
         return ret
 
-def rrt(X_start, X_goal, box, collision_points, plot=False):
+def rrt(X_start, X_goal, vehicle_radius, box, collision_points, plot, max_iterations, dist_plan, tolerance):
     """
     Rapidly exploring random tree planner
 
     @param X_start: start SE2 element
     @param X_goal: goal SE2 element
+    @param vehicle_radius: radius of vehicle
     @param box: [xmin, xmax, ymin, ymax]
     @param collision_points: list of [x, y, radius]
     @param plot (bool), controls plotting
+    @param max_iteration, maximum iterations
+    @param dist_plan, local_path_planner plan distance
+    @param tolerance, goal accpetance distance
     @return path as a list of Tree nodes
     """
 
     root = Tree(X_start)
+    node_best = root
+    dist_best = distance(X_start, X_goal)
+    assert dist_best != 0
+
 
     if plot:
         fig = plt.figure(figsize=(10, 10))
 
-    max_iterations = 200
     i = 0
+    goal_black_list = []
+    success = False
+
     while True:
 
+        # check if we have exeeded max iterations
+        i += 1
+        if i > max_iterations:
+            print('max iterations exceeded')
+            break
+
         # draw a random sample
-        XS = sample(X_goal, box)
+        XS, goal_sampled = sample(X_goal, box)
+
+        if plot:
+            ps = SE2_to_param(XS)
+            plt.plot(ps[1], ps[2], 'r+', markersize=10)
 
         # find the closest node to the sample
-        node, dist = root.closest(XS)
-
-        # avoid bad paths
-        if dist > 10:
-            continue
+        if goal_sampled:
+            node, dist = root.closest(XS, goal_black_list)
+            if node in goal_black_list:
+                continue
+        else:
+            node, dist = root.closest(XS, [])
 
         # plan a path towards the sample from the closest node
         X0 = node.position
-        X1 = local_path_planner(X0, XS)
+        X1 = local_path_planner(X0, XS, dist=dist_plan)
 
         # if the path has a collision, skip
-        if collision(collision_points, X0, X1, box, 10):
+        if collision(collision_points, vehicle_radius, X0, X1, box, 10):
+            if goal_sampled:
+                goal_black_list.append(node)
             continue
 
         # add the end of the local_path_planner path to the tree
@@ -256,36 +318,49 @@ def rrt(X_start, X_goal, box, collision_points, plot=False):
         # plot the tree
         p0 = SE2_to_param(node.position)
         p1 = SE2_to_param(new_node.position)
-        ps = SE2_to_param(XS)
 
         if plot:
-            plt.plot([p0[1], p1[1]], [p0[2], p1[2]], 'k-')
-            plt.plot(ps[1], ps[2], 'r.')
+            # plt.plot([p0[1], p1[1]], [p0[2], p1[2]], 'k-', alpha=0.1)
+            v = SE2_log(SE2_inv(X0).dot(X1))
+            p_path = []
+            for t in np.linspace(0, 1, 10):
+                X = X0.dot(SE2_exp(v*t))
+                theta, x, y = SE2_to_param(X)
+                p_path.append([x, y])
+            p_path = np.array(p_path)
+            plt.plot(p_path[:, 0], p_path[:, 1],  'r-', alpha=0.1)
+
+        dist_new = distance(X1, X_goal)
+        if dist_new < dist_best:
+            dist_best = dist_new
+            node_best = new_node
 
         # check if we have reached the goal
-        if distance(X1, X_goal) < 0.01:
-            print('goal reached')
-            break
-
-        # check if we have exeeded max iterations
-        i += 1
-        if i > max_iterations:
-            print('max iterations exceeded')
+        if dist_new < tolerance:
+            success = True
             break
 
     # build the path
-    path = np.array([SE2_to_param(n.position)[1:] for n in new_node.path()])
+    node_path = node_best.path()
+    path = np.array([SE2_to_param(n.position)[1:] for n in node_path])
+
+    path_full = []
+    for i in range(len(node_path) - 1):
+        X0 = node_path[i].position
+        X1 = node_path[i+1].position
+        v = SE2_log(SE2_inv(X0).dot(X1))
+        for t in np.linspace(0, 1, 10):
+            X = X0.dot(SE2_exp(v*t))
+            theta, x, y = SE2_to_param(X)
+            path_full.append([x, y])
+    path_full = np.array(path_full)
 
     # set the limits for the plot
     if plot:
-        plt.gca().set_xlim([0, 10])
-        plt.gca().set_ylim([-5, 5])
-        plt.grid()
-
         # plot all nodes
         for leaf in root.get_leaves():
             p = SE2_to_param(leaf.position)
-            plt.plot(p[1], p[2], 'bo')
+            plt.plot(p[1], p[2], 'bo', alpha=0.3)
 
         # plot the collision points
         for x, y, r in collision_points:
@@ -295,34 +370,53 @@ def rrt(X_start, X_goal, box, collision_points, plot=False):
         # plot the start and goal positions
         xs = SE2_to_param(X_start)
         xg = SE2_to_param(X_goal)
-        plt.plot(xs[1], xs[2], 'go', markersize=20)
-        plt.plot(xg[1], xg[2], 'ro', markersize=20)
+        plt.plot(xs[1], xs[2], 'rs', markersize=15, alpha=0.3, label='start')
+        plt.plot(xg[1], xg[2], 'gs', markersize=15, alpha=0.3, label='goal')
 
-        plt.plot(path[:, 0], path[:, 1], 'g-', linewidth=10)
+
+        if len(path_full) > 0:
+            plt.plot(path_full[:, 0], path_full[:, 1], 'g-', linewidth=10, alpha=0.3, label='path')
+
+        plt.gca().set_xlim([0, 10])
+        plt.gca().set_ylim([-5, 5])
+        plt.grid()
+
         plt.xlabel('x, m')
         plt.ylabel('y, m')
         plt.title('RRT')
+        plt.legend()
         plt.show()
+
+    return {
+        'success': success,
+        'path': path,
+        'path_full': path_full
+    }
 
 
 if __name__ == "__main__":
     import argparse
 
+    test_SE2()
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--plot', action='store_true')
     args = parser.parse_args()
 
-    X_start = SE2_from_param([0, 0, 0])  # theta=0, x=0, y=0
-    X_goal = SE2_from_param([0, 10, 0])  # theta=0, x=10, y=0
+    X_start = SE2_from_param([0, 1, 0])  # theta=0, x=0, y=0
+    X_goal = SE2_from_param([0, 8, 0])  # theta=0, x=10, y=0
 
     # this is a list of all obstacles
     # x, y, radius
     collision_points = [
-        [5, 0, 2],
-        [3, 3, 1],
-        [5, -5, 2],
-        [10, 5, 3],
-        [10, -5, 2],
+        [5, 0, 1],
+        [3, 3, 0.2],
+        [5, -5, 1],
+        [10, 5, 2],
+        [10, -5, 1],
     ]
 
-    rrt(X_start, X_goal, [0, 10, -5, 5], collision_points, args.plot)
+    ret = rrt(X_start=X_start, X_goal=X_goal, vehicle_radius=1,
+            box=[0, 10, -5, 5], collision_points=collision_points,
+            plot=args.plot, max_iterations=200, dist_plan=3.0, tolerance=0.5)
+    print('success', ret['success'])
