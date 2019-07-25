@@ -3,7 +3,7 @@
   <node pkg="tf2_ros" type="static_transform_publisher" name="hokuyo_tf" args="0 0 0.05 0 0 0 base_link hokuyo_link"/>
 
   <node pkg="rviz" type="rviz" name="rviz" args="-d $(find bswarm)/launch/mycar.rviz"/>
-  <node pkg="bswarm" type="mycar_controller.py" name="mycar_controller"/>
+  <node pkg="bswarm" type="mycar_controller.py" name="mycar_controller" output="screen"/>
 
   <!-- these are the arguments you can pass this launch file, for example paused:=true -->
   <arg name="paused" default="false"/>
