@@ -352,13 +352,12 @@ def rrt(X_start, X_goal, vehicle_radius, box, collision_points, plot, max_iterat
             break
 
     # build the path
-    node_path = node_best.path()
-    path = np.array([SE2_to_param(n.position)[1:] for n in node_path])
+    path = node_best.path()
 
     path_full = []
-    for i in range(len(node_path) - 1):
-        X0 = node_path[i].position
-        X1 = node_path[i+1].position
+    for i in range(len(path) - 1):
+        X0 = path[i].position
+        X1 = path[i+1].position
         v = SE2_log(SE2_inv(X0).dot(X1))
         for t in np.linspace(0, 1, 10):
             X = X0.dot(SE2_exp(v*t))
