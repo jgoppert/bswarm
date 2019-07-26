@@ -5,6 +5,18 @@
   <node pkg="rviz" type="rviz" name="rviz" args="-d $(find bswarm)/launch/mycar.rviz"/>
   <node pkg="bswarm" type="mycar_controller.py" name="mycar_controller" output="screen"/>
 
+  <env name="ROSCONSOLE_CONFIG_FILE" value="$(find bswarm)/config/mrpt_rbpf/rosconsole.config"/>
+    
+  <node pkg="mrpt_rbpf_slam" type="mrpt_rbpf_slam" name="mrpt_rbpf_slam" output="screen">
+    <param name="ini_filename" value="$(find mrpt_rbpf_slam)/tutorial/grid_slam_demo.ini"/>
+    <param name="odom_frame_id" value="odom"/>
+    <param name="global_frame_id" value="map"/>
+    <param name="base_frame_id" value="base_link"/>
+    <!--for multiple sensors, place comma eg "r1/front_laser/scan,/beacon" -->
+    <param name="sensor_source" value="mycar/laser/scan"/>
+    <rosparam command="load" file="$(find bswarm)/config/mrpt_rbpf/default.yaml" /> 
+  </node>
+
   <!-- these are the arguments you can pass this launch file, for example paused:=true -->
   <arg name="paused" default="false"/>
   <arg name="use_sim_time" default="true"/>

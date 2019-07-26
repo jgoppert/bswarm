@@ -37,7 +37,7 @@ class CarController:
         i_min = np.argmin(laser_scan.ranges)
         closest_angle = a0 + da*i_min
         min_dist = laser_scan.ranges[i_min]
-        rospy.loginfo('min dist %f m %f deg', min_dist, np.rad2deg(closest_angle))
+        # rospy.loginfo('min dist %f m %f deg', min_dist, np.rad2deg(closest_angle))
 
         # call long-term planning every 5 seconds
         if (now - self.time_last_plan).to_sec() > 5:
@@ -66,7 +66,7 @@ class CarController:
             (orientation.x, orientation.y, orientation.z, orientation.w) ,
             rospy.Time.now(),
             "base_link",
-            "map")
+            "odom")
 
         #rospy.loginfo('position %f %f %f, m', position.x, position.y, position.z)
         #rospy.loginfo('yaw %f, deg', np.rad2deg(yaw))
