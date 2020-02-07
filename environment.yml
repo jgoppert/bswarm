@@ -4,6 +4,10 @@ channels:
   - defaults
 dependencies:
   - pip
+  - plotly
+  - pillow
+  - sympy
+  - opencv
   - matplotlib
   - numpy
   - scipy
